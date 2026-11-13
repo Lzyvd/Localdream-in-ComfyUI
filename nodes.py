@@ -90,9 +90,9 @@ def _common_input_types(include_image: bool, denoise_default: float) -> Dict[str
             "tooltip": "CFG 系数；NPU 上 cfg=1.0 会跳过无条件 UNet 计算（反向词失效但速度约翻倍）。",
         }),
         "scheduler": (list(ld.SCHEDULERS), {
-            "default": "dpm",
-            "tooltip": "采样 / 去噪方式。后端合法值：dpm, dpm_karras, dpm_sde, "
-                       "dpm_sde_karras, euler_a, euler_a_karras, euler, euler_karras, lcm。",
+            "default": "dpmpp_2m",
+            "tooltip": "采样器名称（ComfyUI 通用命名）。Karras 噪声调度以 _karras 后缀表示；"
+                       "插件会在请求设备时转换成 Local Dream 的 dpm / euler_a 等短名。",
         }),
         "seed": ("INT", {
             "default": 0, "min": 0, "max": 0xffffffff, "step": 1,
@@ -178,7 +178,8 @@ class _LocalDreamSamplerBase:
             "negative_prompt": negative_prompt or settings.get("default_negative_prompt", ""),
             "steps": effective_steps,
             "cfg": float(cfg),
-            "scheduler": scheduler if scheduler in ld.SCHEDULERS else "dpm",
+            # 下拉框用 ComfyUI 通用采样器名，发送给设备时转换成 Local Dream 的短名
+            "scheduler": ld.to_backend_scheduler(scheduler),
             "width": int(resolved["width"]),
             "height": int(resolved["height"]),
         }

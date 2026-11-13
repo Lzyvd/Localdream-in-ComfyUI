@@ -7,7 +7,7 @@
       "model": "自动（使用设备已载入模型）",
       "steps": 20,
       "cfg": 7.5,
-      "scheduler": "dpm",
+      "scheduler": "dpmpp_2m",
       "seed": 12345,
       "denoise": 1.0,
       "width": 512,

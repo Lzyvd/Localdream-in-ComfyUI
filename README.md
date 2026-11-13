@@ -69,7 +69,7 @@ git clone <本仓库> Localdream-in-ComfyUI     # 或直接把本目录复制过
 | `model` | COMBO | 自动 | 来自 `GET :8808/models`；「自动」沿用设备已载入模型 |
 | `steps` | INT 1–100 | 20 | `steps` |
 | `cfg` | FLOAT 0–30 | 7.5 | `cfg`；NPU 上 `cfg=1.0` 会跳过无条件 UNet，速度约翻倍但反向词失效 |
-| `scheduler` | COMBO | `dpm` | 采样 / 去噪方式，见下表 |
+| `scheduler` | COMBO | `dpmpp_2m` | 采样器名称（ComfyUI 通用命名），见下表；请求设备时自动转换 |
 | `seed` | INT 0–2³²−1 | 0 | `seed`，始终显式发送；配合 ComfyUI 自带的 `control_after_generate` |
 | `denoise` | FLOAT 0–1 | 文生图 `1.0` / 图生图 `0.6` | 图生图 → `denoise_strength`；文生图接口无此字段，插件以等效步数 `round(steps*denoise)` 近似 |
 | `width` / `height` | INT 64–2048，8 的倍数 | 512 | `width` / `height`（SDXL NPU 忽略，见下） |
@@ -80,11 +80,36 @@ git clone <本仓库> Localdream-in-ComfyUI     # 或直接把本目录复制过
 | `mask` | MASK（可选连接） | — | 连接后切换 inpaint；白色为需要重绘的区域 |
 | `unique_id` | hidden | — | 传给 `ProgressBar(node_id=...)`，让进度归属到正确节点 |
 
-**`scheduler` 合法值**（未知值后端会静默回退到 `dpm`）：
+**`scheduler` 下拉值**采用 ComfyUI / K 采样器的通用命名；插件在请求设备时映射成
+Local Dream 后端只认的短名（旧工作流里保存的短名也仍然兼容）：
 
-`dpm` · `dpm_karras` · `dpm_sde` · `dpm_sde_karras` · `euler_a` · `euler_a_karras` · `euler` · `euler_karras` · `lcm`
+| 节点显示 | 设备 `scheduler` | 对应 UI |
+|---|---|---|
+| `dpmpp_2m` | `dpm` | DPM++ 2M |
+| `dpmpp_2m_karras` | `dpm_karras` | DPM++ 2M + Karras |
+| `dpmpp_sde` | `dpm_sde` | DPM++ 2M SDE |
+| `dpmpp_sde_karras` | `dpm_sde_karras` | DPM++ 2M SDE + Karras |
+| `euler_ancestral` | `euler_a` | Euler A |
+| `euler_ancestral_karras` | `euler_a_karras` | Euler A + Karras |
+| `euler` | `euler` | Euler |
+| `euler_karras` | `euler_karras` | Euler + Karras |
+| `lcm` | `lcm` | LCM |
 
-> `lcm` 不支持 `_karras` 后缀；DMD2 极速模型通常用 `lcm` + `cfg 1` + 8 步。
+> 未知值后端会静默回退到 `dpm`。`lcm` 不支持 `_karras` 后缀；DMD2 极速模型请固定用
+> `lcm` + `cfg 1` + 8 步（真机实测 `dpmpp_2m_karras` 等 Karras 变体在该 DMD2 模型上会长时间不返回）。
+> Karras 以采样器名后缀表示，是受控模式接口的限制，所以没有独立的「调度器」下拉。
+
+### 中文本地化
+
+所有控件标签、提示与输出名通过 ComfyUI 官方 i18n 机制翻译，文件在
+`locales/zh/nodeDefs.json`（中文）与 `locales/en/nodeDefs.json`（英文），
+中文界面下显示为：正面提示词 / 模型 / 步数 / cfg / 采样器名称 / 种子 / 降噪 /
+宽度 / 高度 / 负面提示词 / 宽高比 / 使用 OpenCL / 生成张数 / 图像 / 蒙版，
+与内置 K 采样器的命名风格一致。控件内部标识仍是英文，旧工作流完全兼容。
+
+节点右上角的来源徽标由 ComfyUI 前端按 `python_module` 生成，默认会把
+`-ComfyUI` 后缀砍掉显示成 `Localdream-in`；插件在节点定义注册阶段修正，
+徽标完整显示 `Localdream-in-ComfyUI`。
 
 ---
 
@@ -200,7 +225,7 @@ python tests/run_tests.py
 覆盖：节点映射与 `INPUT_TYPES` 加载、参数校验、设置保存/读取/重置与全部 HTTP 路由、
 `/info` `/models` `/status` `/select`、SSE `progress`/`complete` 解析、原生进度条回调序列、
 原始 RGB → ComfyUI `IMAGE` 张量、图生图 PNG 编码、批量拼接、设置界面 JS 语法与交互冒烟测试。
-当前 **102 项断言全部通过**，设置界面实际渲染截图见 `tests/settings_dialog_preview.png`。
+当前 **107 项断言全部通过**，设置界面实际渲染截图见 `tests/settings_dialog_preview.png`。
 真机测试中发现并修复了设备 `total_steps` 与请求 `steps` 不一致、甚至同一次生成中途变化的情况，
 现在进度条按设备报告比例映射到固定总量，max 稳定、value 单调走到 100%。
 
@@ -219,6 +244,9 @@ python tests/run_tests.py
 | 出图 | 设置面板测试生成、`/prompt` 文生图、`/prompt` 文生图→图生图串联均成功，输出 1024×1024 RGB PNG，图像正常无花屏 |
 | 进度条 | WebSocket `progress` 事件归属到正确节点；两节点 max 稳定、value 单调，均收尾 100%；`progress_state` 正常推送 |
 | 设备约束 | 全程 `serving_model_id` 保持为指定模型，未载入或切换到任何其它模型 |
+| 来源徽标 | 修正 ComfyUI 前端 `shortenNodeName()` 砍掉 `-ComfyUI` 后缀的问题，画布徽标完整显示 `Localdream-in-ComfyUI` |
+| 采样器命名 | 下拉改为 `dpmpp_2m` / `euler_ancestral` 等通用名，真实工作流日志确认 `dpmpp_2m_karras → dpm_karras`，设备请求值仍合法 |
+| 中文本地化 | `locales/zh/nodeDefs.json` 经 `/i18n` 生效：模型 / 步数 / cfg / 采样器名称 / 种子 / 生成后控制 / 降噪 / 宽度 / 高度 / 负面提示词 / 宽高比 / 使用 OpenCL / 生成张数，与 K 采样器一致 |
 
 若自行复测，建议仍按下面 5 步确认：
 
@@ -241,6 +269,8 @@ python tests/run_tests.py
 | 请求立刻失败、日志出现代理字样 | 保持「绕过系统 HTTP 代理」开启 |
 | 工作流第二次运行没有进度 | ComfyUI 缓存命中，改种子或参数即可 |
 | 模型下拉框是空的 | 点设置里的「刷新模型列表」；设备离线时会回退到上次缓存 |
+| DMD2 模型换了 Karras 采样器后久无进度 | 该模型请固定 `lcm` + `cfg 1` + 8 步；点 ComfyUI 的「取消」中断，必要时回 App 重新进入受控模式 |
+| 徽标显示 `Localdream-in` 而不是全名 | 浏览器刷新页面（JS 扩展重新注册）；Python 侧改动需重启 ComfyUI |
 
 ---
 
@@ -252,7 +282,8 @@ Localdream-in-ComfyUI/
 ├── nodes.py                 # 文生图 / 图生图节点 + 原生进度条
 ├── ld_client.py             # 配置、双端口 HTTP、SSE、模型、图像编解码（零第三方依赖）
 ├── web_api.py               # ComfyUI 同源设置/诊断/模型/测试生成路由
-├── js/localdream.js         # 设置按钮 + 独立设置弹窗 + 模型下拉框同步
+├── js/localdream.js         # 设置按钮 + 独立设置弹窗 + 模型下拉 + 来源徽标修正
+├── locales/                 # zh / en 官方 i18n（控件标签、提示、输出名）
 ├── examples/                # /prompt 格式的示例工作流
 ├── tests/                   # 模拟设备 + 离线端到端验证 + 设置界面截图
 ├── settings.example.json    # 可公开的配置模板（示例 IP，可提交）

@@ -1,0 +1,44 @@
+{
+  "LocalDreamTextToImage": {
+    "display_name": "LocalDream Text to Image (Prompt to Image)",
+    "description": "Generate images with Local Dream controlled mode on a phone. Sampling runs on the device; ComfyUI only orchestrates.",
+    "inputs": {
+      "prompt": { "name": "Positive Prompt", "tooltip": "Prompt sent to Local Dream (77-token CLIP limit)." },
+      "model": { "name": "Model", "tooltip": "Model id from GET :8808/models. Auto keeps the model currently loaded on the device." },
+      "steps": { "name": "Steps", "tooltip": "Number of sampler steps. DMD2 models usually use 8 steps." },
+      "cfg": { "name": "cfg", "tooltip": "CFG scale. On NPU, cfg=1.0 skips the unconditional UNet pass." },
+      "scheduler": { "name": "Sampler Name", "tooltip": "ComfyUI-style sampler name. A _karras suffix selects the Karras noise schedule." },
+      "seed": { "name": "Seed", "tooltip": "uint32 seed; always sent explicitly for reproducibility." },
+      "denoise": { "name": "Denoise", "tooltip": "Text-to-image has no denoise field; approximated by effective steps = steps x denoise." },
+      "width": { "name": "Width", "tooltip": "Output width, multiple of 8. SDXL uses the aspect ratio instead." },
+      "height": { "name": "Height", "tooltip": "Output height, multiple of 8." },
+      "negative_prompt": { "name": "Negative Prompt", "tooltip": "Falls back to the default negative prompt in settings when empty." },
+      "aspect_ratio": { "name": "Aspect Ratio", "tooltip": "SDXL NPU only; auto derives it from width and height with a 1024px long side." },
+      "use_opencl": { "name": "Use OpenCL", "tooltip": "SD1.5 CPU mode only: switch the MNN backend to GPU OpenCL." },
+      "batch_count": { "name": "Batch Count", "tooltip": "Images are generated sequentially and accumulated on one progress bar." }
+    },
+    "outputs": { "0": { "name": "Image", "tooltip": "Generated image as a ComfyUI IMAGE tensor." } }
+  },
+  "LocalDreamImageToImage": {
+    "display_name": "LocalDream Image to Image",
+    "description": "Resize a ComfyUI IMAGE to the target size and use it as the img2img base. Connect a mask for inpainting.",
+    "inputs": {
+      "prompt": { "name": "Positive Prompt", "tooltip": "Prompt used for the redraw." },
+      "model": { "name": "Model", "tooltip": "Model id from GET :8808/models. Auto keeps the currently loaded model." },
+      "steps": { "name": "Steps", "tooltip": "Number of sampler steps." },
+      "cfg": { "name": "cfg", "tooltip": "CFG scale." },
+      "scheduler": { "name": "Sampler Name", "tooltip": "ComfyUI-style sampler name." },
+      "seed": { "name": "Seed", "tooltip": "uint32 seed." },
+      "denoise": { "name": "Denoise", "tooltip": "Sent as denoise_strength (0-1)." },
+      "width": { "name": "Width", "tooltip": "Output width, multiple of 8." },
+      "height": { "name": "Height", "tooltip": "Output height, multiple of 8." },
+      "image": { "name": "Image", "tooltip": "Base image, resized and encoded as PNG before upload." },
+      "negative_prompt": { "name": "Negative Prompt", "tooltip": "Falls back to the default negative prompt in settings when empty." },
+      "aspect_ratio": { "name": "Aspect Ratio", "tooltip": "SDXL NPU only; auto derives it from width and height." },
+      "use_opencl": { "name": "Use OpenCL", "tooltip": "SD1.5 CPU mode only." },
+      "batch_count": { "name": "Batch Count", "tooltip": "With a batched input, one image is generated per batch item." },
+      "mask": { "name": "Mask", "tooltip": "Optional. Enables inpainting; white areas are redrawn." }
+    },
+    "outputs": { "0": { "name": "Image", "tooltip": "Redrawn image as a ComfyUI IMAGE tensor." } }
+  }
+}

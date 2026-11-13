@@ -188,7 +188,7 @@ async def handle_test_generate(request):
             "negative_prompt": str(data.get("negative_prompt") or settings["default_negative_prompt"]),
             "steps": steps,
             "cfg": float(data.get("cfg") or 7.5),
-            "scheduler": str(data.get("scheduler") or "dpm"),
+            "scheduler": ld.to_backend_scheduler(data.get("scheduler") or "dpmpp_2m"),
             "width": resolved["width"],
             "height": resolved["height"],
         }

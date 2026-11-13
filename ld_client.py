@@ -44,11 +44,42 @@ MODELS_CACHE_FILE = os.path.join(PLUGIN_DIR, "models_cache.json")
 
 AUTO_MODEL = "自动（使用设备已载入模型）"
 
-# 后端 scheduler 合法取值（未知值会静默回退到 dpm）
+# 节点下拉框显示的采样器名称，采用 ComfyUI / K 采样器的通用命名。
+# Local Dream 后端 /generate 只认另一套短名，因此提交前由 to_backend_scheduler() 映射。
 SCHEDULERS: List[str] = [
-    "dpm", "dpm_karras", "dpm_sde", "dpm_sde_karras",
-    "euler_a", "euler_a_karras", "euler", "euler_karras", "lcm",
+    "dpmpp_2m", "dpmpp_2m_karras", "dpmpp_sde", "dpmpp_sde_karras",
+    "euler_ancestral", "euler_ancestral_karras", "euler", "euler_karras", "lcm",
 ]
+
+SCHEDULER_TO_BACKEND: Dict[str, str] = {
+    # 节点显示名 -> /generate 的 scheduler 值
+    "dpmpp_2m": "dpm",
+    "dpmpp_2m_karras": "dpm_karras",
+    "dpmpp_sde": "dpm_sde",
+    "dpmpp_sde_karras": "dpm_sde_karras",
+    "euler_ancestral": "euler_a",
+    "euler_ancestral_karras": "euler_a_karras",
+    "euler": "euler",
+    "euler_karras": "euler_karras",
+    "lcm": "lcm",
+    # 兼容旧工作流里保存的后端原生短名
+    "dpm": "dpm", "dpm_karras": "dpm_karras",
+    "dpm_sde": "dpm_sde", "dpm_sde_karras": "dpm_sde_karras",
+    "euler_a": "euler_a", "eulera": "euler_a",
+    "euler_a_karras": "euler_a_karras",
+}
+
+# 后端实际接受的 scheduler 合法值（官方文档：未知值静默回退 dpm）
+BACKEND_SCHEDULERS: List[str] = [
+    "dpm", "dpm_karras", "dpm_sde", "dpm_sde_karras",
+    "euler_a", "eulera", "euler_a_karras", "euler", "euler_karras", "lcm",
+]
+
+
+def to_backend_scheduler(name: Any) -> str:
+    """把节点上的采样器名称转换成 /generate 的 scheduler 值。"""
+    key = str(name or "dpmpp_2m")
+    return SCHEDULER_TO_BACKEND.get(key, "dpm")
 
 ASPECT_RATIOS: List[str] = [
     "auto", "1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3",
@@ -539,11 +570,50 @@ def _stream_generate(settings: Dict[str, Any], payload: Dict[str, Any],
         method="POST",
     )
     try:
-        resp = _opener(settings).open(req, timeout=float(settings["timeout"]))
+        resp = _opener(settings).open(req, timeout=min(30.0, float(settings["timeout"])))
     except Exception as exc:
         raise _friendly_http_error(exc, settings, "gen")
 
-    ctype = ""
+    # 注意：不要给 HTTPResponse 的 socket 设置很短的读超时。socket 超时会让
+    # http.client 的内部缓冲进入不可恢复状态（cannot read from timed out object），
+    # 大图 / 慢网络反而会失败。这里保持长超时，用看门狗线程处理中断。
+    try:
+        fp = getattr(resp, "fp", None)
+        raw_fp = getattr(fp, "raw", None)
+        response_sock = getattr(raw_fp, "_sock", None) if raw_fp is not None else None
+    except Exception:
+        response_sock = None
+
+    deadline = time.monotonic() + float(settings["timeout"])
+    interrupted_by_watchdog = {"v": False}
+    stop_watchdog = threading.Event()
+
+    def watchdog():
+        # 只读取中断标志（不消费），命中时强制断开 socket，让阻塞读尽快退出；
+        # 执行线程随后用 cancel_check() 抛出 ComfyUI 的标准中断异常。
+        while not stop_watchdog.wait(0.25):
+            try:
+                import comfy.model_management as mm
+                check = getattr(mm, "processing_interrupted", None)
+                interrupted = bool(check()) if check else False
+            except Exception:
+                interrupted = False
+            if not interrupted:
+                continue
+            interrupted_by_watchdog["v"] = True
+            try:
+                if response_sock is not None:
+                    response_sock.shutdown(socket.SHUT_RDWR)
+            except Exception:
+                pass
+            try:
+                resp.close()
+            except Exception:
+                pass
+            return
+
+    threading.Thread(target=watchdog, daemon=True,
+                     name="LocaldreamInterruptWatchdog").start()
     try:
         ctype = (resp.headers.get("Content-Type") or "")
         if "text/event-stream" not in ctype.lower():
@@ -574,46 +644,79 @@ def _stream_generate(settings: Dict[str, Any], payload: Dict[str, Any],
                 on_event(event)
             return None
 
-        try:
-            for raw_line in resp:
-                line = raw_line.decode("utf-8", "replace").rstrip("\r\n")
-                if line == "":
-                    # 标准 SSE：空行结束一个事件
-                    result = dispatch("\n".join(data_lines))
-                    data_lines = []
-                    if result is not None:
-                        return result
-                    continue
-                if line.startswith(":"):        # SSE 注释 / keep-alive
-                    continue
-                if line.startswith("data:"):
-                    content = line[5:].lstrip()
-                    # Local Dream 的 native 后端与 ld-api 的解析方式一致：
-                    # 每个事件就是一行完整的 data: JSON，可能不带空行分隔符。
-                    # 因此只要单行能独立解析就立刻派发，保证进度条实时推进；
-                    # 否则按标准 SSE 累积多行，等空行再派发。
-                    if content:
-                        try:
-                            json.loads(content)
-                        except Exception:
-                            data_lines.append(content)
-                            continue
-                        result = dispatch(content)
-                        data_lines = []
-                        if result is not None:
-                            return result
-            result = dispatch("\n".join(data_lines))
+        def handle_line(line: str):
+            """处理一行 SSE；返回 complete 事件或 None。"""
+            nonlocal data_lines
+            line = line.rstrip("\r")
+            if line == "":
+                # 标准 SSE：空行结束一个事件
+                result = dispatch("\n".join(data_lines))
+                data_lines = []
+                return result
+            if line.startswith(":"):        # SSE 注释 / keep-alive
+                return None
+            if not line.startswith("data:"):
+                return None
+            content = line[5:].lstrip()
+            if not content:
+                return None
+            # Local Dream 的 native 后端与 ld-api 的解析方式一致：
+            # 每个事件就是一行完整的 data: JSON，可能不带空行分隔符。
+            # 单行能独立解析就立刻派发，保证进度条实时推进；
+            # 否则按标准 SSE 累积多行，等空行再派发。
+            try:
+                json.loads(content)
+            except Exception:
+                data_lines.append(content)
+                return None
+            result = dispatch(content)
+            data_lines = []
+            return result
+
+        # 分块读取：socket 超时只代表「暂时没数据」，保留 buffer 继续读，
+        # 不会像逐行 readline 那样丢掉半行；每次醒来都检查中断与总超时。
+        buffer = ""
+        while True:
+            if cancel_check:
+                cancel_check()
+            if time.monotonic() > deadline:
+                raise LocalDreamError("生成超时（{} 秒）。请检查手机是否熄屏、App 是否被系统回收。".format(
+                    int(settings["timeout"])))
+            try:
+                chunk = resp.read1(65536) if hasattr(resp, "read1") else resp.read(65536)
+            except (socket.timeout, TimeoutError, OSError) as exc:
+                if interrupted_by_watchdog["v"] and cancel_check:
+                    cancel_check()
+                raise _friendly_http_error(exc, settings, "gen")
+            if not chunk:
+                break
+            buffer += chunk.decode("utf-8", "replace")
+            lines = buffer.split("\n")
+            buffer = lines.pop() or ""
+            for line in lines:
+                result = handle_line(line)
+                if result is not None:
+                    return result
+        if buffer.strip():
+            result = handle_line(buffer)
             if result is not None:
                 return result
-        finally:
-            try:
-                resp.close()
-            except Exception:
-                pass
+        result = dispatch("\n".join(data_lines))
+        if result is not None:
+            return result
     except LocalDreamError:
         raise
     except Exception as exc:
         raise _friendly_http_error(exc, settings, "gen")
+    finally:
+        stop_watchdog.set()
+        try:
+            resp.close()
+        except Exception:
+            pass
+    # 流提前结束（设备断开 / 用户中断）时，先让执行线程抛出标准中断异常
+    if cancel_check:
+        cancel_check()
     raise LocalDreamError("生成流在没有 complete 事件的情况下结束。请确认 App 仍在受控模式且模型已载入。")
 
 

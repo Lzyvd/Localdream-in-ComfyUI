@@ -1,0 +1,138 @@
+{
+  "LocalDreamTextToImage": {
+    "display_name": "LocalDream 文生图 (提示词 → 图像)",
+    "description": "通过手机端 Local Dream 受控模式文生图。所有采样在手机 NPU/CPU 上完成，ComfyUI 只负责编排与显示。",
+    "inputs": {
+      "prompt": {
+        "name": "正面提示词",
+        "tooltip": "发送给 Local Dream 的正向提示词；CLIP 上限 77 token，留空时使用设置里的默认反向词仍然生效。"
+      },
+      "model": {
+        "name": "模型",
+        "tooltip": "来自设备 GET :8808/models 的模型；「自动」沿用设备当前已载入的模型。"
+      },
+      "steps": {
+        "name": "步数",
+        "tooltip": "采样步数，对应 /generate 的 steps。DMD2 模型通常用 8 步。"
+      },
+      "cfg": {
+        "name": "cfg",
+        "tooltip": "CFG 系数；NPU 上 cfg=1.0 会跳过无条件 UNet 计算，速度约翻倍但反向词基本失效。"
+      },
+      "scheduler": {
+        "name": "采样器名称",
+        "tooltip": "ComfyUI 通用采样器命名；_karras 后缀表示 Karras 噪声调度。插件会转换为设备端短名。"
+      },
+      "seed": {
+        "name": "种子",
+        "tooltip": "uint32 随机种子；始终显式发送以保证可复现。"
+      },
+      "denoise": {
+        "name": "降噪",
+        "tooltip": "文生图接口没有独立降噪字段，插件以等效步数 steps × 降噪 近似实现。"
+      },
+      "width": {
+        "name": "宽度",
+        "tooltip": "输出宽度（8 的倍数）；SDXL 由宽高比换算，NPU 会自动向模型分辨率靠拢。"
+      },
+      "height": {
+        "name": "高度",
+        "tooltip": "输出高度（8 的倍数）。"
+      },
+      "negative_prompt": {
+        "name": "负面提示词",
+        "tooltip": "留空时使用设置里的默认反向提示词；cfg=1.0 时反向词基本不生效。"
+      },
+      "aspect_ratio": {
+        "name": "宽高比",
+        "tooltip": "仅 SDXL NPU 生效；auto 表示由宽度/高度自动换算，长边固定 1024。"
+      },
+      "use_opencl": {
+        "name": "使用 OpenCL",
+        "tooltip": "仅 SD1.5 CPU 模式有效，把 MNN 后端切换到 GPU OpenCL。"
+      },
+      "batch_count": {
+        "name": "生成张数",
+        "tooltip": "设备不支持并发，插件顺序生成多张并在同一条进度条上累计。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像",
+        "tooltip": "设备返回的生成图，已还原成 ComfyUI IMAGE 张量。"
+      }
+    }
+  },
+  "LocalDreamImageToImage": {
+    "display_name": "LocalDream 图生图 (图像 → 图像)",
+    "description": "接收 ComfyUI IMAGE 并按目标尺寸缩放后进行图生图重绘；连接蒙版时切换为局部重绘。",
+    "inputs": {
+      "prompt": {
+        "name": "正面提示词",
+        "tooltip": "重绘时使用的正向提示词。"
+      },
+      "model": {
+        "name": "模型",
+        "tooltip": "来自设备 GET :8808/models 的模型；「自动」沿用设备当前已载入的模型。"
+      },
+      "steps": {
+        "name": "步数",
+        "tooltip": "采样步数，对应 /generate 的 steps。"
+      },
+      "cfg": {
+        "name": "cfg",
+        "tooltip": "CFG 系数；NPU 上 cfg=1.0 会跳过无条件 UNet 计算。"
+      },
+      "scheduler": {
+        "name": "采样器名称",
+        "tooltip": "ComfyUI 通用采样器命名；插件会转换为设备端短名。"
+      },
+      "seed": {
+        "name": "种子",
+        "tooltip": "uint32 随机种子。"
+      },
+      "denoise": {
+        "name": "降噪",
+        "tooltip": "去噪强度，直接传给 /generate 的 denoise_strength（0~1）。"
+      },
+      "width": {
+        "name": "宽度",
+        "tooltip": "输出宽度（8 的倍数）。"
+      },
+      "height": {
+        "name": "高度",
+        "tooltip": "输出高度（8 的倍数）。"
+      },
+      "image": {
+        "name": "图像",
+        "tooltip": "底图，按目标尺寸缩放并编码成 PNG 后上传给设备。"
+      },
+      "negative_prompt": {
+        "name": "负面提示词",
+        "tooltip": "留空时使用设置里的默认反向提示词。"
+      },
+      "aspect_ratio": {
+        "name": "宽高比",
+        "tooltip": "仅 SDXL NPU 生效；auto 表示由宽度/高度自动换算。"
+      },
+      "use_opencl": {
+        "name": "使用 OpenCL",
+        "tooltip": "仅 SD1.5 CPU 模式有效。"
+      },
+      "batch_count": {
+        "name": "生成张数",
+        "tooltip": "输入为多张图像时按图像批次逐张生成。"
+      },
+      "mask": {
+        "name": "蒙版",
+        "tooltip": "可选。连接后切换为局部重绘，白色区域为需要重绘的区域。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像",
+        "tooltip": "设备返回的重绘图，已还原成 ComfyUI IMAGE 张量。"
+      }
+    }
+  }
+}

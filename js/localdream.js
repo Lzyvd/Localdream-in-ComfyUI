@@ -16,6 +16,26 @@ const EXT_NAME = "Localdream.ComfyUI.Settings";
 const NODE_CLASSES = ["LocalDreamTextToImage", "LocalDreamImageToImage"];
 const AUTO_FALLBACK = "自动（使用设备已载入模型）";
 
+// ComfyUI 前端 getNodeSource() 会把 python_module 段的 "-ComfyUI" 后缀砍掉，
+// 于是节点来源徽标显示成 "Localdream-in"。这里在节点定义注册前补一段同名后缀，
+// 缩短后正好还原成完整的插件名；同时直接修正已生成的 nodeSource 对象。
+const PACK_DISPLAY_NAME = "Localdream-in-ComfyUI";
+const PACK_PYTHON_MODULE = "custom_nodes.Localdream-in-ComfyUI-ComfyUI";
+
+function fixNodeSourceBadge(nodeData) {
+  if (!nodeData) return;
+  if (typeof nodeData.python_module === "string" &&
+      nodeData.python_module.includes("Localdream-in")) {
+    nodeData.python_module = PACK_PYTHON_MODULE;
+  }
+  const source = nodeData.nodeSource;
+  if (source && source.type === "custom_nodes" &&
+      /^Localdream-in/i.test(String(source.displayText || ""))) {
+    source.displayText = PACK_DISPLAY_NAME;
+    source.badgeText = PACK_DISPLAY_NAME;
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* 小工具                                                              */
 /* ------------------------------------------------------------------ */
@@ -590,11 +610,16 @@ app.registerExtension({
   },
 
   async nodeCreated(node) {
+    try {
+      fixNodeSourceBadge(node && node.constructor && node.constructor.nodeData);
+    } catch (e) { /* 忽略：不同前端版本 nodeData 结构可能不同 */ }
     addSettingsButton(node);
   },
 
   async beforeRegisterNodeDef(nodeType, nodeData) {
     if (!nodeType || !NODE_CLASSES.includes(nodeType.comfyClass || nodeType.type)) return;
+    fixNodeSourceBadge(nodeData);
+    try { fixNodeSourceBadge(nodeType.nodeData); } catch (e) { /* 忽略 */ }
     if (nodeType.prototype._ldMenuHooked) return;
     nodeType.prototype._ldMenuHooked = true;
     // 右键菜单里也放一个入口，作为某些前端版本按钮控件失效时的兜底
