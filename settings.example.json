@@ -1,0 +1,21 @@
+{
+  "host": "192.168.1.7",
+  "control_port": 8808,
+  "gen_port": 8081,
+  "control_host": "",
+  "gen_host": "",
+  "connect_timeout": 5,
+  "timeout": 600,
+  "model_load_timeout": 180,
+  "models_ttl": 20,
+  "disable_proxy": true,
+  "auto_select_model": true,
+  "auto_match_resolution": true,
+  "default_model": "自动（使用设备已载入模型）",
+  "default_negative_prompt": "",
+  "default_width": 512,
+  "default_height": 512,
+  "show_diffusion_process": false,
+  "preview_stride": 1,
+  "preview_in_comfy": true
+}

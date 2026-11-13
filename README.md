@@ -53,6 +53,7 @@ git clone <本仓库> Localdream-in-ComfyUI     # 或直接把本目录复制过
 4. 回到节点，选模型、写提示词，点 ComfyUI 的「运行」。进度条会按设备 SSE 回传的步数推进。
 
 > 配置保存在插件目录 `settings.json`，两个节点共用；保存后立即生效，无需重启 ComfyUI。
+> 该文件含本机设备地址，**已 gitignore，请勿提交**；可公开的配置模板见 `settings.example.json`。
 > 也可用环境变量 `LOCALDREAM_HOST` 预置设备地址（仅在没有 `settings.json` 时作为默认值）。
 
 ---
@@ -199,11 +200,27 @@ python tests/run_tests.py
 覆盖：节点映射与 `INPUT_TYPES` 加载、参数校验、设置保存/读取/重置与全部 HTTP 路由、
 `/info` `/models` `/status` `/select`、SSE `progress`/`complete` 解析、原生进度条回调序列、
 原始 RGB → ComfyUI `IMAGE` 张量、图生图 PNG 编码、批量拼接、设置界面 JS 语法与交互冒烟测试。
-当前 **100 项断言全部通过**，设置界面实际渲染截图见 `tests/settings_dialog_preview.png`。
+当前 **102 项断言全部通过**，设置界面实际渲染截图见 `tests/settings_dialog_preview.png`。
+真机测试中发现并修复了设备 `total_steps` 与请求 `steps` 不一致、甚至同一次生成中途变化的情况，
+现在进度条按设备报告比例映射到固定总量，max 稳定、value 单调走到 100%。
 
 更详细的验证说明见 `tests/README.md`。
 
-在有 ComfyUI 的真机环境里，建议再确认：
+### 真机验证记录（ComfyUI 0.42.5 + Local Dream 3.0.0-alpha.7）
+
+只加载本插件启动 ComfyUI（`--disable-all-custom-nodes --whitelist-custom-nodes Localdream-in-ComfyUI`），
+全程仅使用一个 DMD2 模型，验证通过：
+
+| 项目 | 结果 |
+|---|---|
+| 节点加载 | `/object_info` 出现两个节点；`/extensions` 加载 `localdream.js`；20 条路由注册成功 |
+| 前端 | 真实 Vue 前端创建节点后生成「⚙ LocalDream 设置」按钮（`serialize:false`），点击可打开弹窗；IP / 端口 / 模型下拉 / 设备状态正确回填 |
+| 设置 | 测试连接、载入模型、模型刷新、保存并读回、恢复默认、设置面板测试生成均正常 |
+| 出图 | 设置面板测试生成、`/prompt` 文生图、`/prompt` 文生图→图生图串联均成功，输出 1024×1024 RGB PNG，图像正常无花屏 |
+| 进度条 | WebSocket `progress` 事件归属到正确节点；两节点 max 稳定、value 单调，均收尾 100%；`progress_state` 正常推送 |
+| 设备约束 | 全程 `serving_model_id` 保持为指定模型，未载入或切换到任何其它模型 |
+
+若自行复测，建议仍按下面 5 步确认：
 
 1. 重启后「添加节点 → LocalDream」能看到两个节点，`/object_info` 里有 `LocalDreamTextToImage` / `LocalDreamImageToImage`。
 2. 点节点上的 ⚙ 按钮能打开设置弹窗，测试连接显示设备信息，保存后模型下拉框出现设备上的模型 id。
@@ -238,8 +255,9 @@ Localdream-in-ComfyUI/
 ├── js/localdream.js         # 设置按钮 + 独立设置弹窗 + 模型下拉框同步
 ├── examples/                # /prompt 格式的示例工作流
 ├── tests/                   # 模拟设备 + 离线端到端验证 + 设置界面截图
-├── settings.json            # 运行时生成（已 gitignore）
-├── models_cache.json        # 运行时生成（已 gitignore）
+├── settings.example.json    # 可公开的配置模板（示例 IP，可提交）
+├── settings.json            # 运行时生成，含真实设备 IP（已 gitignore，勿提交）
+├── models_cache.json        # 运行时生成，含设备模型与手机路径（已 gitignore，勿提交）
 ├── pyproject.toml
 ├── requirements.txt         # 空：无额外依赖
 └── LICENSE                  # MIT
@@ -247,6 +265,37 @@ Localdream-in-ComfyUI/
 
 ---
 
-## 11. 许可
+## 11. 隐私与发布注意事项
+
+**不要 push 到 GitHub 的文件**（`.gitignore` 已覆盖前 5 项）：
+
+| 文件 / 目录 | 含什么隐私 |
+|---|---|
+| `settings.json`、`settings.json.tmp`、`settings.*.json` | 手机局域网 IP、控制口/生成口、地址覆盖、默认模型、超时等本机连接配置 |
+| `models_cache.json` | 设备上的模型清单与手机内部存储绝对路径（`/storage/emulated/0/...`） |
+| `*.log`、`*.log.*` | 运行日志会记录设备 URL、模型 id、提示词与请求耗时 |
+| `.env`、`.env.*`、`*_local.json` | 可能含 `LOCALDREAM_HOST` 等本机地址 |
+| `tests/`、`realdevice*/`、`output/` | 本地验证产物、真机测试脚本与生成图；生成图 PNG 元数据里还带提示词与工作流 |
+| ComfyUI 安装目录下 `custom_nodes/Localdream-in-ComfyUI/settings.json` | 与上面第一项相同，是本机安装副本，别把它当插件源码提交 |
+
+**可以安全提交**：`settings.example.json`（只含示例 IP `192.168.1.7` 与默认值）、
+`README.md`、四个 `.py`、`js/`、`examples/`、`pyproject.toml`、`requirements.txt`、`LICENSE`、
+`.gitignore`。文档与离线测试里出现的 `192.168.1.7` / `10.0.0.42` / `192.0.2.1` 都是示例或保留网段，
+不是真实设备地址。
+
+提交前自检：
+
+```bash
+git status --short
+git grep -nE "([0-9]{1,3}\.){3}[0-9]{1,3}"   # 只应看到示例 IP 与 127.0.0.1
+git check-ignore -v settings.json models_cache.json
+```
+
+> 若用环境变量 `LOCALDREAM_HOST` 预置设备地址，请放在 shell 配置或本机 `.env` 里，
+> 不要写进任何会被提交的文件。
+
+---
+
+## 12. 许可
 
 MIT。本项目是第三方接入插件，与 Local Dream 官方无隶属关系。

@@ -247,17 +247,26 @@ class _LocalDreamSamplerBase:
             if mask_b64 is not None:
                 payload["mask"] = mask_b64
 
-        base_steps = index * effective_steps
+        # 设备报告的 total_steps 与请求 steps 可能不同，甚至在同一次生成里变化：
+        #   · 文生图 DMD2：请求 8 步，设备固定推送 10 步
+        #   · 图生图 denoise=0.5：设备先报 total_steps=11，之后改报 7
+        # 且首步/个别中间步会重复推送。因此进度条总量固定为「请求步数 × 张数」，
+        # 每条事件按 step/total_steps 的比例映射过去：max 稳定、value 单调递增，
+        # 无论设备内部怎么调整步数，最后都能平滑走到 100%。
+        pbar_total = max(1, int(total))
         progress_seen = {"n": 0}
 
         def on_event(event):
             step = int(event.get("step") or 0)
-            value = min(total, base_steps + step)
+            reported = int(event.get("total_steps") or 0) or max(1, int(effective_steps))
+            frac = max(0.0, min(1.0, float(step) / max(1, reported)))
+            value = min(float(pbar_total),
+                        index * effective_steps + frac * effective_steps)
             progress_seen["n"] += 1
             preview = None
             if show_preview and event.get("image"):
                 preview = ld.make_comfy_preview(event, target_w, target_h)
-            pbar.update_absolute(value, total, preview)
+            pbar.update_absolute(value, pbar_total, preview)
             _cancel_check()
 
         LOG.info("[Localdream] 生成 %d/%d | %dx%d | steps=%d cfg=%s scheduler=%s seed=%s",
@@ -266,7 +275,7 @@ class _LocalDreamSamplerBase:
         complete = ld.generate(settings, payload, on_event, _cancel_check, lock=True)
         raw, w, h = ld.decode_event_image(complete, target_w, target_h)
         # 无论设备是否推送了每一步，都把这一批推进到 100%，保证进度条正确收尾
-        pbar.update_absolute(min(total, base_steps + effective_steps), total)
+        pbar.update_absolute((index + 1) * effective_steps, pbar_total)
         LOG.info("[Localdream] 完成 %d/%d | seed=%s | %dx%d | %s ms",
                  index + 1, count, complete.get("seed"), w, h,
                  complete.get("generation_time_ms"))
