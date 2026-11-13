@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+settings.json
+settings.json.tmp
+models_cache.json
+*.log
+.DS_Store
+tests/_harness/
+tests/_out/
+tests/

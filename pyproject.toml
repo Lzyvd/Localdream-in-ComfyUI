@@ -1,0 +1,17 @@
+[project]
+name = "localdream-in-comfyui"
+version = "1.0.0"
+description = "ComfyUI 插件：接入手机端 Local Dream「受控模式」，提供文生图 / 图生图节点与原生进度条"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+# 运行期零第三方依赖：只用标准库 + ComfyUI 自带的 torch/numpy/Pillow/aiohttp
+dependencies = []
+
+[tool.comfy]
+PublisherId = ""
+DisplayName = "Localdream-in-ComfyUI"
+Icon = ""
+
+[tool.setuptools]
+py-modules = ["ld_client", "nodes", "web_api"]

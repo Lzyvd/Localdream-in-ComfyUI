@@ -1,0 +1,24 @@
+{
+  "1": {
+    "class_type": "LocalDreamTextToImage",
+    "inputs": {
+      "prompt": "masterpiece, best quality, a cute cat sitting on a windowsill, warm sunlight",
+      "negative_prompt": "lowres, bad anatomy, text, watermark",
+      "model": "自动（使用设备已载入模型）",
+      "steps": 20,
+      "cfg": 7.5,
+      "scheduler": "dpm",
+      "seed": 12345,
+      "denoise": 1.0,
+      "width": 512,
+      "height": 512,
+      "aspect_ratio": "auto",
+      "use_opencl": false,
+      "batch_count": 1
+    }
+  },
+  "2": {
+    "class_type": "PreviewImage",
+    "inputs": { "images": ["1", 0] }
+  }
+}

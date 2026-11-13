@@ -1,0 +1,5 @@
+# Localdream-in-ComfyUI 运行期零第三方依赖。
+#
+# 与手机的通信（HTTP / SSE / JSON / Base64 / PNG）全部使用 Python 标准库；
+# torch、numpy、Pillow、aiohttp 均由 ComfyUI 自带，无需在此声明。
+# 请勿在此添加 requests / aiohttp 等条目，避免污染 ComfyUI 环境。

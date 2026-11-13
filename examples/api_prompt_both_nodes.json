@@ -1,0 +1,43 @@
+{
+  "1": {
+    "class_type": "LocalDreamTextToImage",
+    "inputs": {
+      "prompt": "masterpiece, a red lighthouse on a cliff at sunset, dramatic clouds",
+      "negative_prompt": "lowres, blurry, watermark",
+      "model": "自动（使用设备已载入模型）",
+      "steps": 20,
+      "cfg": 7.5,
+      "scheduler": "dpm_karras",
+      "seed": 20261113,
+      "denoise": 1.0,
+      "width": 512,
+      "height": 512,
+      "aspect_ratio": "auto",
+      "use_opencl": false,
+      "batch_count": 1
+    }
+  },
+  "2": {
+    "class_type": "LocalDreamImageToImage",
+    "inputs": {
+      "image": ["1", 0],
+      "prompt": "masterpiece, the same lighthouse in a storm, cinematic lighting",
+      "negative_prompt": "lowres, blurry, watermark",
+      "model": "自动（使用设备已载入模型）",
+      "steps": 16,
+      "cfg": 7.0,
+      "scheduler": "euler_a",
+      "seed": 777,
+      "denoise": 0.55,
+      "width": 512,
+      "height": 512,
+      "aspect_ratio": "auto",
+      "use_opencl": false,
+      "batch_count": 1
+    }
+  },
+  "3": {
+    "class_type": "PreviewImage",
+    "inputs": { "images": ["2", 0] }
+  }
+}
