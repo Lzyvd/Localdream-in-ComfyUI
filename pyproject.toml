@@ -8,6 +8,11 @@ requires-python = ">=3.10"
 # 运行期零第三方依赖：只用标准库 + ComfyUI 自带的 torch/numpy/Pillow/aiohttp
 dependencies = []
 
+[project.urls]
+Homepage = "https://github.com/Lzyvd/Localdream-in-ComfyUI"
+Repository = "https://github.com/Lzyvd/Localdream-in-ComfyUI"
+Issues = "https://github.com/Lzyvd/Localdream-in-ComfyUI/issues"
+
 [tool.comfy]
 PublisherId = ""
 DisplayName = "Localdream-in-ComfyUI"

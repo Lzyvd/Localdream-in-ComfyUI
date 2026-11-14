@@ -6,6 +6,11 @@
 **只需要这一个插件**：设置界面走 ComfyUI 自带的 HTTP 路由，生成请求在 ComfyUI 进程内直连手机，
 不需要额外后台程序、反向代理、独立服务或额外部署。
 
+**项目地址**：<https://github.com/Lzyvd/Localdream-in-ComfyUI> · 📖 [English README](README.en.md)
+
+> ⭐ 喜欢这个项目的话，欢迎去 GitHub 点个 **Star** 支持一下，这是继续维护的最大动力。
+> 遇到问题或有想法，也欢迎提 [Issue](https://github.com/Lzyvd/Localdream-in-ComfyUI/issues) 或 Pull Request。
+
 ---
 
 ## 1. 交付内容
@@ -30,7 +35,8 @@
 
 ```bash
 cd <ComfyUI>/custom_nodes
-git clone <本仓库> Localdream-in-ComfyUI     # 或直接把本目录复制过去
+git clone https://github.com/Lzyvd/Localdream-in-ComfyUI.git Localdream-in-ComfyUI
+# 或直接把本目录复制过去
 ```
 
 重启 ComfyUI。插件**没有第三方 Python 依赖**（`requirements.txt` 为空），
@@ -122,7 +128,7 @@ Local Dream 后端只认的短名（旧工作流里保存的短名也仍然兼�
 | 连接 | 设备 IP、控制口 8808 / 生成口 8081、载入分辨率、默认模型、载入模型、刷新模型列表、测试连接、设备信息与后端状态 |
 | 生成 | 默认反向词、自动载入模型、自动匹配分辨率、扩散过程预览开关与步幅、ComfyUI 中间帧预览、测试生成（含结果预览图） |
 | 高级 | 生成 / 控制口 / 模型载入超时、模型缓存 TTL、控制口与生成口地址覆盖、绕过系统代理、恢复默认 |
-| 关于 | 接口依据、双端口与 SSE 说明、官方文档链接、注意事项 |
+| 关于 | 项目地址与 Star 支持入口、Issue / 英文文档链接、接口依据、双端口与 SSE 说明、官方文档链接、注意事项 |
 
 点击 **保存并生效** 会：写入 `settings.json` → 清模型缓存 → 重新拉取模型列表并同步到所有已存在节点的模型下拉框 → 重新诊断。
 
@@ -225,7 +231,7 @@ python tests/run_tests.py
 覆盖：节点映射与 `INPUT_TYPES` 加载、参数校验、设置保存/读取/重置与全部 HTTP 路由、
 `/info` `/models` `/status` `/select`、SSE `progress`/`complete` 解析、原生进度条回调序列、
 原始 RGB → ComfyUI `IMAGE` 张量、图生图 PNG 编码、批量拼接、设置界面 JS 语法与交互冒烟测试。
-当前 **107 项断言全部通过**，设置界面实际渲染截图见 `tests/settings_dialog_preview.png`。
+当前 **117 项断言全部通过**，设置界面实际渲染截图见 `tests/settings_dialog_preview.png`。
 真机测试中发现并修复了设备 `total_steps` 与请求 `steps` 不一致、甚至同一次生成中途变化的情况，
 现在进度条按设备报告比例映射到固定总量，max 稳定、value 单调走到 100%。
 
@@ -278,6 +284,8 @@ python tests/run_tests.py
 
 ```
 Localdream-in-ComfyUI/
+├── README.md                # 中文说明
+├── README.en.md             # English README
 ├── __init__.py              # 节点映射 + WEB_DIRECTORY + 注册路由
 ├── nodes.py                 # 文生图 / 图生图节点 + 原生进度条
 ├── ld_client.py             # 配置、双端口 HTTP、SSE、模型、图像编解码（零第三方依赖）
@@ -310,9 +318,9 @@ Localdream-in-ComfyUI/
 | ComfyUI 安装目录下 `custom_nodes/Localdream-in-ComfyUI/settings.json` | 与上面第一项相同，是本机安装副本，别把它当插件源码提交 |
 
 **可以安全提交**：`settings.example.json`（只含示例 IP `192.168.1.7` 与默认值）、
-`README.md`、四个 `.py`、`js/`、`examples/`、`pyproject.toml`、`requirements.txt`、`LICENSE`、
-`.gitignore`。文档与离线测试里出现的 `192.168.1.7` / `10.0.0.42` / `192.0.2.1` 都是示例或保留网段，
-不是真实设备地址。
+`README.md`、`README.en.md`、`locales/`、四个 `.py`、`js/`、`examples/`、`pyproject.toml`、
+`requirements.txt`、`LICENSE`、`.gitignore`。文档与离线测试里出现的
+`192.168.1.7` / `10.0.0.42` / `192.0.2.1` 都是示例或保留网段，不是真实设备地址。
 
 提交前自检：
 
@@ -327,6 +335,25 @@ git check-ignore -v settings.json models_cache.json
 
 ---
 
-## 12. 许可
+## 12. 支持与反馈
+
+项目主页：**<https://github.com/Lzyvd/Localdream-in-ComfyUI>**
+
+如果这个项目帮你把手机 NPU 用起来了，或者觉得「只装一个插件就能跑」这点还算省心，
+欢迎点个 **⭐ Star** 支持一下 —— 对独立维护的小项目来说，Star 和反馈就是继续更新的动力。
+
+| 想做的事 | 去哪里 |
+|---|---|
+| ⭐ 点 Star / 看更新 | <https://github.com/Lzyvd/Localdream-in-ComfyUI> |
+| 🐛 报 bug、提需求 | <https://github.com/Lzyvd/Localdream-in-ComfyUI/issues> |
+| 🔧 提交改动 | <https://github.com/Lzyvd/Localdream-in-ComfyUI/pulls> |
+| 📖 看英文文档 | [README.en.md](README.en.md) |
+| 💬 反馈设备兼容情况 | 附上手机型号、Local Dream 版本与 `/info` 内容提 Issue 即可 |
+
+也欢迎在 Issue 里补充你实测可用的机型 / 模型组合，方便后来的人少踩坑。
+
+---
+
+## 13. 许可
 
 MIT。本项目是第三方接入插件，与 Local Dream 官方无隶属关系。

@@ -16,6 +16,11 @@ const EXT_NAME = "Localdream.ComfyUI.Settings";
 const NODE_CLASSES = ["LocalDreamTextToImage", "LocalDreamImageToImage"];
 const AUTO_FALLBACK = "自动（使用设备已载入模型）";
 
+const PROJECT_URL = "https://github.com/Lzyvd/Localdream-in-ComfyUI";
+const PROJECT_ISSUES_URL = PROJECT_URL + "/issues";
+const PROJECT_PULLS_URL = PROJECT_URL + "/pulls";
+const EN_README_URL = PROJECT_URL + "/blob/main/README.en.md";
+
 // ComfyUI 前端 getNodeSource() 会把 python_module 段的 "-ComfyUI" 后缀砍掉，
 // 于是节点来源徽标显示成 "Localdream-in"。这里在节点定义注册前补一段同名后缀，
 // 缩短后正好还原成完整的插件名；同时直接修正已生成的 nodeSource 对象。
@@ -181,6 +186,12 @@ textarea.ld{resize:vertical;min-height:52px;}
 .ld-link{color:#8ab4f8;text-decoration:none;} .ld-link:hover{text-decoration:underline;}
 .ld-code{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--ld-sub);
   background:rgba(127,127,127,.08);padding:8px 10px;border-radius:6px;white-space:pre-wrap;word-break:break-all;}
+.ld-repo-card{border:1px solid var(--ld-line);border-radius:8px;padding:12px 14px;margin:0 0 16px;
+  background:rgba(76,141,255,.07);}
+.ld-repo-card .label{font-size:11px;color:var(--ld-sub);margin-bottom:6px;}
+.ld-repo-card .url{font-family:ui-monospace,Consolas,monospace;font-size:12px;word-break:break-all;}
+.ld-star{margin-top:9px;color:var(--ld-fg);font-size:12px;line-height:1.7;}
+.ld-links{display:flex;gap:14px;flex-wrap:wrap;margin-top:9px;font-size:11.5px;}
 `;
 
 function injectStyle() {
@@ -296,8 +307,23 @@ function buildDialog() {
 
   /* --- 关于页 --- */
   const pageAbout = h("div", { class: "ld-page", "data-page": "about" },
-    h("h3", { text: "关于 / 接口依据" }),
+    h("h3", { text: "关于 / 项目信息" }),
     h("p", { class: "desc", text: "本插件只与手机端 Local Dream 受控模式通信，所有推理在手机上完成；不需要云端、不需要额外后台程序。" }),
+    h("div", { class: "ld-repo-card" },
+      h("div", { class: "label", text: "项目地址 · GitHub" }),
+      h("div", { class: "url" },
+        h("a", { class: "ld-link", id: "ld-repo-link", href: PROJECT_URL,
+                 target: "_blank", rel: "noopener", text: PROJECT_URL })),
+      h("div", { class: "ld-star", id: "ld-star-tip" },
+        h("span", { text: "⭐ 喜欢这个项目？欢迎点个 " }),
+        h("a", { class: "ld-link", id: "ld-star-link", href: PROJECT_URL,
+                 target: "_blank", rel: "noopener", text: "Star" }),
+        h("span", { text: " 支持一下，这是继续维护的最大动力。" })),
+      h("div", { class: "ld-links" },
+        h("a", { class: "ld-link", href: PROJECT_ISSUES_URL, target: "_blank", rel: "noopener", text: "提 Issue / 反馈问题" }),
+        h("a", { class: "ld-link", href: PROJECT_PULLS_URL, target: "_blank", rel: "noopener", text: "Pull Request" }),
+        h("a", { class: "ld-link", href: EN_README_URL, target: "_blank", rel: "noopener", text: "English README" }))),
+    h("h3", { style: "margin-top:18px", text: "接口依据" }),
     h("div", { class: "ld-code", text:
       ":8808 控制口  GET /info /models /status · POST /select /stop\n" +
       ":8081 生成口  POST /generate (SSE) · POST /tokenize\n\n" +
@@ -326,6 +352,9 @@ function buildDialog() {
   const foot = h("div", { class: "ld-foot" },
     h("span", { class: "unit", text: "配置保存在插件目录 settings.json，所有节点共用" }),
     h("span", { class: "spacer" }),
+    h("a", { class: "ld-link", id: "ld-foot-repo",
+             style: "font-size:11px;white-space:nowrap",
+             href: PROJECT_URL, target: "_blank", rel: "noopener", text: "GitHub ⭐ Star" }),
     h("button", { class: "ld-btn", text: "取消", onclick: () => closeDialog() }),
     h("button", { class: "ld-btn primary", id: "ld-save", text: "保存并生效", onclick: () => saveSettings() }));
 
